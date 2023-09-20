@@ -6,9 +6,4 @@ try:
 except DistributionNotFound:
     pass
 
-try:
-    from . import vstore
-except DistributionNotFound:
-    pass
-
-__all__ = ["alchemy", "vstore"]
+__all__ = ["alchemy"]

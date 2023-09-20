@@ -1,13 +1,14 @@
 assert __import__("pkg_resources").get_distribution(
-    "sqlalchemy").version.split('.') >= ['0', '6'], \
-    "requires sqlalchemy version 0.6 or greater"
+    "sqlalchemy").version.split('.') >= ['1', '4'], \
+    "requires sqlalchemy version 1.4 or greater"
 
+from collections import defaultdict
 from builtins import next
 import warnings
 from datetime import datetime
 
-from werkzeug.urls import iri_to_uri
-from sqlalchemy import schema, Table, exc, util
+#from werkzeug.urls import iri_to_uri
+from sqlalchemy import schema, Table, exc, util, types
 from sqlalchemy.schema import Constraint
 from sqlalchemy.sql import (text, bindparam, compiler, operators)
 from sqlalchemy.sql.expression import (
@@ -21,12 +22,14 @@ from sqlalchemy.sql.functions import GenericFunction
 from sqlalchemy.types import (
     CHAR, VARCHAR, TIME, NCHAR, NVARCHAR, DATETIME, FLOAT, String, NUMERIC,
     INTEGER, SMALLINT, VARBINARY, DECIMAL, TIMESTAMP, UnicodeText, REAL,
-    Unicode, Text, Float, Binary, UserDefinedType, TypeDecorator)
+    Unicode, Text, Float, LargeBinary, UserDefinedType, TypeDecorator)
 from sqlalchemy.orm import column_property
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.elements import Grouping, ClauseList
-import past.builtins
+from sqlalchemy.engine import reflection
+
+# import past.builtins
 import pyodbc
 
 
@@ -163,7 +166,7 @@ class VirtuosoSQLCompiler(compiler.SQLCompiler):
                 s += "TOP %s " % (select._limit,)
         return s
 
-    def limit_clause(self, select):
+    def limit_clause(self, select, **kw):
         # Limit in virtuoso is after the select keyword
         return ""
 
@@ -247,43 +250,30 @@ class SparqlClause(TextClause):
 
 
 class LONGVARCHAR(Text):
-    __visit_name__ = 'LONG VARCHAR'
+    __visit_name__ = 'LONG_VARCHAR'
 
 
 class LONGNVARCHAR(UnicodeText):
-    __visit_name__ = 'LONG NVARCHAR'
+    __visit_name__ = 'LONG_NVARCHAR'
 
 
 class DOUBLEPRECISION(Float):
-    __visit_name__ = 'DOUBLE PRECISION'
+    __visit_name__ = 'DOUBLE_PRECISION'
 
 
-class LONGVARBINARY(Binary):
-    __visit_name__ = 'LONG VARBINARY'
+class LONGVARBINARY(LargeBinary):
+    __visit_name__ = 'LONG_VARBINARY'
 
 
-class CoerceUnicode(TypeDecorator):
-    impl = Unicode
-    # Maybe TypeDecorator should delegate? Another story
-    python_type = past.builtins.unicode
 
-    def process_bind_param(self, value, dialect):
-        if util.py2k and isinstance(value, util.binary_type):
-            value = value.decode(dialect.encoding)
-        return value
-
-    def bind_expression(self, bindvalue):
-        return _cast_nvarchar(bindvalue)
+# class _cast_nvarchar(ColumnElement):
+#    def __init__(self, bindvalue):
+#        self.bindvalue = bindvalue
 
 
-class _cast_nvarchar(ColumnElement):
-    def __init__(self, bindvalue):
-        self.bindvalue = bindvalue
-
-
-@compiles(_cast_nvarchar)
-def _compile(element, compiler, **kw):
-    return compiler.process(cast(element.bindvalue, Unicode), **kw)
+# @compiles(_cast_nvarchar)
+# def _compile(element, compiler, **kw):
+#    return compiler.process(cast(element.bindvalue, Unicode), **kw)
 
 
 class dt_set_tz(GenericFunction):
@@ -327,121 +317,121 @@ class Timestamp(TypeDecorator):
 
 
 TEXT_TYPES = (CHAR, VARCHAR, NCHAR, NVARCHAR, String, UnicodeText,
-              Unicode, Text, LONGVARCHAR, LONGNVARCHAR, CoerceUnicode)
+              Unicode, Text, LONGVARCHAR, LONGNVARCHAR)
 
 
-class IRI_ID_Literal(str):
-    "An internal virtuoso IRI ID, of the form #innnnn"
-    def __str__(self):
-        return 'IRI_ID_Literal("%s")' % (self, )
+# class IRI_ID_Literal(str):
+#     "An internal virtuoso IRI ID, of the form #innnnn"
+#     def __str__(self):
+#         return 'IRI_ID_Literal("%s")' % (self, )
+# 
+#     def __repr__(self):
+#         return str(self)
+# 
 
-    def __repr__(self):
-        return str(self)
-
-
-class IRI_ID(UserDefinedType):
-    "A column type for IRI ID"
-    __visit_name__ = 'IRI_ID'
-
-    def __init__(self):
-        super(IRI_ID, self).__init__()
-
-    def get_col_spec(self):
-        return "IRI_ID"
-
-    def bind_processor(self, dialect):
-        def process(value):
-            if value:
-                return IRI_ID_Literal(value)
-        return process
-
-    def result_processor(self, dialect, coltype):
-        def process(value):
-            if value:
-                return IRI_ID_Literal(value)
-        return process
-
-
-class iri_id_num(GenericFunction):
-    "Convert IRI IDs to int values"
-    type = INTEGER
-    name = "iri_id_num"
-
-    def __init__(self, iri_id, **kw):
-        if not isinstance(iri_id, IRI_ID_Literal)\
-                and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
-            warnings.warn("iri_id_num() accepts an IRI_ID object as input.")
-        super(iri_id_num, self).__init__(iri_id, **kw)
+# class IRI_ID(UserDefinedType):
+#     "A column type for IRI ID"
+#     __visit_name__ = 'IRI_ID'
+# 
+#     def __init__(self):
+#         super(IRI_ID, self).__init__()
+# 
+#     def get_col_spec(self):
+#         return "IRI_ID"
+# 
+#     def bind_processor(self, dialect):
+#         def process(value):
+#             if value:
+#                 return IRI_ID_Literal(value)
+#         return process
+# 
+#     def result_processor(self, dialect, coltype):
+#         def process(value):
+#             if value:
+#                 return IRI_ID_Literal(value)
+#         return process
 
 
-class iri_id_from_num(GenericFunction):
-    "Convert numeric IRI IDs to IRI ID literal type"
-    type = IRI_ID
-    name = "iri_id_from_num"
-
-    def __init__(self, num, **kw):
-        if not isinstance(num, int):
-            warnings.warn("iri_id_num() accepts an Integer as input.")
-        super(iri_id_from_num, self).__init__(num, **kw)
-
-
-class id_to_iri(GenericFunction):
-    "Get the IRI from a given IRI ID"
-    type = String
-    name = "id_to_iri"
-
-    def __init__(self, iri_id, **kw):
-        # TODO: Handle deferred.
-        if not isinstance(iri_id, IRI_ID_Literal)\
-                and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
-            warnings.warn("iri_id_num() accepts an IRI_ID as input.")
-        super(id_to_iri, self).__init__(iri_id, **kw)
+# class iri_id_num(GenericFunction):
+#     "Convert IRI IDs to int values"
+#     type = INTEGER
+#     name = "iri_id_num"
+# 
+#     def __init__(self, iri_id, **kw):
+#         if not isinstance(iri_id, IRI_ID_Literal)\
+#                 and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
+#             warnings.warn("iri_id_num() accepts an IRI_ID object as input.")
+#         super(iri_id_num, self).__init__(iri_id, **kw)
 
 
-class iri_to_id(GenericFunction):
-    """Get an IRI ID from an IRI.
-    If the IRI is new to virtuoso, the IRI ID may be created on-the-fly,
-    according to the second argument."""
-    type = IRI_ID
-    name = "iri_to_id"
-
-    def __init__(self, iri, create=True, **kw):
-        if isinstance(iri, past.builtins.unicode):
-            iri = iri_to_uri(iri)
-        if not isinstance(iri, str):
-            warnings.warn("iri_id_num() accepts an IRI (VARCHAR) as input.")
-        super(iri_to_id, self).__init__(iri, create, **kw)
+# class iri_id_from_num(GenericFunction):
+#     "Convert numeric IRI IDs to IRI ID literal type"
+#     type = IRI_ID
+#     name = "iri_id_from_num"
+# 
+#     def __init__(self, num, **kw):
+#         if not isinstance(num, int):
+#             warnings.warn("iri_id_num() accepts an Integer as input.")
+#         super(iri_id_from_num, self).__init__(num, **kw)
 
 
-def iri_property(iri_id_colname, iri_propname):
-    """Class decorator to add access to an IRI_ID column as an IRI.
-    The name of the IRI property will be iri_propname."""
-    def iri_class_decorator(klass):
-        iri_hpropname = '_'+iri_propname
-        setattr(klass, iri_hpropname,
-                column_property(id_to_iri(getattr(klass, iri_id_colname))))
+# class id_to_iri(GenericFunction):
+#     "Get the IRI from a given IRI ID"
+#     type = String
+#     name = "id_to_iri"
+# 
+#     def __init__(self, iri_id, **kw):
+#         # TODO: Handle deferred.
+#         if not isinstance(iri_id, IRI_ID_Literal)\
+#                 and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
+#             warnings.warn("iri_id_num() accepts an IRI_ID as input.")
+#         super(id_to_iri, self).__init__(iri_id, **kw)
+# 
 
-        def iri_accessor(self):
-            return getattr(self, iri_hpropname)
+# class iri_to_id(GenericFunction):
+#     """Get an IRI ID from an IRI.
+#     If the IRI is new to virtuoso, the IRI ID may be created on-the-fly,
+#     according to the second argument."""
+#     type = IRI_ID
+#     name = "iri_to_id"
+# 
+#     def __init__(self, iri, create=True, **kw):
+#         if isinstance(iri, past.builtins.unicode):
+#             iri = iri_to_uri(iri)
+#         if not isinstance(iri, str):
+#             warnings.warn("iri_id_num() accepts an IRI (VARCHAR) as input.")
+#         super(iri_to_id, self).__init__(iri, create, **kw)
 
-        def iri_expression(klass):
-            return id_to_iri(getattr(klass, iri_id_colname))
 
-        def iri_setter(self, val):
-            setattr(self, iri_hpropname, val)
-            setattr(self, iri_id_colname, iri_to_id(val))
-
-        def iri_deleter(self):
-            setattr(self, iri_id_colname, None)
-
-        col = getattr(klass, iri_id_colname)
-        if not col.property.columns[0].nullable:
-            iri_deleter = None
-        prop = hybrid_property(
-            iri_accessor, iri_setter, iri_deleter, iri_expression)
-        setattr(klass, iri_propname, prop)
-        return klass
-    return iri_class_decorator
+# def iri_property(iri_id_colname, iri_propname):
+#     """Class decorator to add access to an IRI_ID column as an IRI.
+#     The name of the IRI property will be iri_propname."""
+#     def iri_class_decorator(klass):
+#         iri_hpropname = '_'+iri_propname
+#         setattr(klass, iri_hpropname,
+#                 column_property(id_to_iri(getattr(klass, iri_id_colname))))
+# 
+#         def iri_accessor(self):
+#             return getattr(self, iri_hpropname)
+# 
+#         def iri_expression(klass):
+#             return id_to_iri(getattr(klass, iri_id_colname))
+# 
+#         def iri_setter(self, val):
+#             setattr(self, iri_hpropname, val)
+#             setattr(self, iri_id_colname, iri_to_id(val))
+# 
+#         def iri_deleter(self):
+#             setattr(self, iri_id_colname, None)
+# 
+#         col = getattr(klass, iri_id_colname)
+#         if not col.property.columns[0].nullable:
+#             iri_deleter = None
+#         prop = hybrid_property(
+#             iri_accessor, iri_setter, iri_deleter, iri_expression)
+#         setattr(klass, iri_propname, prop)
+#         return klass
+#     return iri_class_decorator
 
 
 class XML(Text):
@@ -456,13 +446,13 @@ class VirtuosoTypeCompiler(compiler.GenericTypeCompiler):
     def visit_boolean(self, type_):
         return self.visit_SMALLINT(type_)
 
-    def visit_LONGVARCHAR(self, type_):
+    def visit_LONG_VARCHAR(self, type_):
         return 'LONG VARCHAR'
 
-    def visit_LONGNVARCHAR(self, type_):
+    def visit_LONG_NVARCHAR(self, type_):
         return 'LONG NVARCHAR'
 
-    def visit_DOUBLEPRECISION(self, type_):
+    def visit_DOUBLE_PRECISION(self, type_):
         return 'DOUBLE PRECISION'
 
     def visit_BIGINT(self, type_):
@@ -472,10 +462,10 @@ class VirtuosoTypeCompiler(compiler.GenericTypeCompiler):
         return "CHAR(10)"
 
     def visit_CLOB(self, type_):
-        return self.visit_LONGVARCHAR(type_)
+        return self.visit_LONG_VARCHAR(type_)
 
     def visit_NCLOB(self, type_):
-        return self.visit_LONGNVARCHAR(type_)
+        return self.visit_LONG_NVARCHAR(type_)
 
     def visit_TEXT(self, type_):
         return self._render_string_type(type_, "LONG VARCHAR")
@@ -489,11 +479,11 @@ class VirtuosoTypeCompiler(compiler.GenericTypeCompiler):
     def visit_VARBINARY(self, type_):
         return "VARBINARY" + (type_.length and "(%d)" % type_.length or "")
 
-    def visit_LONGVARBINARY(self, type_):
+    def visit_LONG_VARBINARY(self, type_):
         return 'LONG VARBINARY'
 
     def visit_large_binary(self, type_):
-        return self.visit_LONGVARBINARY(type_)
+        return self.visit_LONG_VARBINARY(type_)
 
     def visit_unicode(self, type_):
         return self.visit_NVARCHAR(type_)
@@ -502,7 +492,7 @@ class VirtuosoTypeCompiler(compiler.GenericTypeCompiler):
         return self.visit_TEXT(type_)
 
     def visit_unicode_text(self, type_):
-        return self.visit_LONGNVARCHAR(type_)
+        return self.visit_LONG_NVARCHAR(type_)
 
     def visit_IRI_ID(self, type_):
         return "IRI_ID"
@@ -516,6 +506,8 @@ class VirtuosoTypeCompiler(compiler.GenericTypeCompiler):
     # def visit_user_defined(self, type_):
     # TODO!
     #     return type_.get_col_spec()
+
+
 
 
 
@@ -647,7 +639,7 @@ class VirtuosoDDLCompiler(compiler.DDLCompiler):
 # TODO: Alter is weird. Use MODIFY with full new thing. Eg:
 # ALTER TABLE assembl..imported_post MODIFY body_mime_type NVARCHAR NOT NULL
 
-
+##??TODO fixme recheck types XML end etc
 ischema_names = {
     'bigint': INTEGER,
     'int': INTEGER,
@@ -717,76 +709,341 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
     ddl_compiler = VirtuosoDDLCompiler
     supports_right_nested_joins = False
     supports_multivalues_insert = False
-
+    supports_statement_cache = True
     supports_sequences = True
     postfetch_lastrowid = True
+    supports_native_decimal = True
+
 
     def connect(self, *args, **kwargs):
         connection = super(VirtuosoDialect, self).connect(*args, **kwargs)
-        if util.py2k:
-            connection.setdecoding(pyodbc.SQL_CHAR, 'utf-8', pyodbc.SQL_CHAR)
-            connection.setdecoding(pyodbc.SQL_WCHAR, 'utf-32LE', pyodbc.SQL_WCHAR, unicode)
-            connection.setdecoding(pyodbc.SQL_WMETADATA, 'utf-32LE', pyodbc.SQL_WCHAR, unicode)
-            connection.setencoding(unicode, 'utf-32LE', pyodbc.SQL_WCHAR)
-            connection.setencoding(str, 'utf-8', pyodbc.SQL_CHAR)
-        else:
-            connection.setdecoding(pyodbc.SQL_CHAR, 'utf-8', pyodbc.SQL_CHAR)
-            connection.setdecoding(pyodbc.SQL_WCHAR, 'utf-32LE', pyodbc.SQL_WCHAR)
-            connection.setdecoding(pyodbc.SQL_WMETADATA, 'utf-32LE', pyodbc.SQL_WCHAR)
-            connection.setencoding('utf-32LE', pyodbc.SQL_WCHAR)
-            connection.setencoding('utf-8', pyodbc.SQL_CHAR)
         return connection
 
     def _get_default_schema_name(self, connection):
         res = connection.execute(
-            'select U_DEF_QUAL, get_user() from DB.DBA.SYS_USERS where U_NAME=get_user()')
+            text('select dbname(), get_user()'))
         catalog, schema = res.fetchone()
-        if catalog:
-            return '.'.join((catalog, schema))
+        self.default_cat = catalog
+        return '.'.join((catalog, schema))
 
-    def has_table(self, connection, tablename, schema=None):
+
+    def _get_path(self, schema=None, **kw):
         if schema is None:
             schema = self.default_schema_name
+        if schema is None:
+            return (self.default_cat, None)
         if '.' not in schema:
-            schema += '.'
-        catalog, schema = schema.split('.', 1)
-        result = connection.execute(
-            text("SELECT TABLE_NAME FROM DB..TABLES WHERE "
-                 "TABLE_CATALOG=:schemaname AND "
-                 "TABLE_NAME=:tablename",
-                 bindparams=[
-                     bindparam("schemaname", catalog),
-                     bindparam("tablename", tablename)
-                 ])
-        )
-        return result.scalar() is not None
+            return (self.default_cat, schema)
+        else:
+            return schema.split('.', 1)
+
+
+    def get_default_isolation_level(self, connection):
+        return "READ COMMITTED"
+
+
+    def has_schema(self, connection, schema, **kw):
+        catalog, schema_ = self._get_path(None)
+        params = [catalog, schema];
+
+        sql=("SELECT TABLE_NAME FROM DB..TABLES \n"
+                 "WHERE upper(TABLE_CATALOG) like upper(?) \n"
+                 "  AND upper(TABLE_SCHEMA) like upper(?)")
+
+        row = connection.connection.execute(sql, tuple(params)).fetchone()
+        if row:
+           return True
+        else:
+           return False
+         
+
+    def has_table(self, connection, table_name, schema=None, **kw):
+        catalog, schema_ = self._get_path(None)
+        params = [catalog, schema_, table_name];
+
+        sql=("SELECT TABLE_NAME FROM DB..TABLES \n"
+                 "WHERE upper(TABLE_CATALOG) like upper(?) \n"
+                 "  AND upper(TABLE_SCHEMA) like upper(?) \n"
+                 "  AND upper(TABLE_NAME) like upper(?) ")
+
+        row = connection.connection.execute(sql, tuple(params)).fetchone()
+        if row:
+           return True
+        else:
+           return False
+
 
     def has_sequence(self, connection, sequence_name, schema=None):
         # sequences are auto-created in virtuoso
         return True
 
+
+
     def get_table_names(self, connection, schema=None, **kw):
-        if schema is None:
-            schema = self.default_schema_name
-        if schema is None:
-            result = connection.execute(
-                text("SELECT TABLE_NAME FROM DB..TABLES"))
-            return [r[0] for r in result]
-        if '.' not in schema:
-            schema += '.'
-        catalog, schema = schema.split('.', 1)
-        if catalog:
-            if schema:
-                result = connection.execute(
-                    text("SELECT TABLE_NAME FROM DB..TABLES WHERE "
-                         "TABLE_CATALOG=:catalog AND TABLE_SCHEMA = :schema"),
-                    catalog=catalog, schema=schema)
-            else:
-                result = connection.execute(
-                    text("SELECT TABLE_NAME FROM DB..TABLES WHERE"
-                         "TABLE_CATALOG=:catalog"), catalog=catalog)
+        catalog, schema_ = self._get_path(schema)
+        params = [catalog, schema_];
+
+        sql=("SELECT TABLE_NAME FROM DB..TABLES \n"
+                 "WHERE upper(TABLE_CATALOG) like upper(?) \n"
+                 " AND upper(TABLE_SCHEMA) like upper(?) ")
+
+        ret = []
+        for row in connection.connection.execute(sql, tuple(params)):
+            ret.append(row.TABLE_NAME)
+        return ret
+
+
+    @reflection.cache
+    def get_schema_names(self, connection, **kw):
+        catalog, schema = self._get_path(None)
+        params = [catalog];
+
+        sql=("select distinct \n" +
+             " name_part(KEY_TABLE, 1) AS TABLE_SCHEM VARCHAR(128) \n" +
+             "from DB.DBA.SYS_KEYS \n"
+             "where upper(name_part(SYS_KEYS.KEY_TABLE,0)) like upper(?)")
+
+        ret = []
+        for row in connection.connection.execute(sql, tuple(params)):
+           ret.append(row.TABLE_SCHEM)
+        return ret
+
+    
+    def get_view_names(self, connection, schema=None, **kw):
+        catalog, schema_ = self._get_path(schema)
+        params = [catalog, schema_];
+
+        sql=("SELECT TABLE_NAME FROM DB..VIEWS \n"
+                 "WHERE upper(TABLE_CATALOG) like upper(?) \n"
+                 " AND upper(TABLE_SCHEMA) like upper(?) ")
+
+        ret = []
+        for row in connection.connection.execute(sql, tuple(params)):
+            ret.append(row.TABLE_NAME)
+        return ret
+
+
+    def get_view_definition(self, connection, view_name, schema=None, **kw):
+        catalog, schema = self._get_path(schema)
+        params = [catalog, schema_, view_name];
+
+        sql=("SELECT VIEW_DEFINITION FROM DB..VIEWS \n"
+                 "WHERE upper(TABLE_CATALOG) like upper(?) \n"
+                 " AND upper(TABLE_SCHEMA) like upper(?) \n"
+                 " AND upper(TABLE_NAME) like upper(?) ")
+
+        ret = []
+        row = connection.connection.execute(sql, tuple(params)).fetchone()
+        if row:
+           return row.VIEW_DEFINITION
         else:
-            result = connection.execute(
-                text("SELECT TABLE_NAME FROM DB..TABLES WHERE"
-                     "TABLE_SCHEMA=:schema"), schema=schema)
-        return [r[0] for r in result]
+           return ''
+
+
+    @reflection.cache
+    def get_columns(self, connection, table_name, schema=None, **kw):
+        catalog, schema_ = self._get_path(schema)
+        params = [catalog, schema_, table_name]
+
+        sql=("select\n"
+             " name_part (k.KEY_TABLE,0) AS TABLE_CAT VARCHAR(128),\n"
+             " name_part (k.KEY_TABLE,1) AS TABLE_SCHEM VARCHAR(128),\n"
+             " name_part (k.KEY_TABLE,2) AS TABLE_NAME VARCHAR(128), \n"
+             " c.\"COLUMN\" AS COLUMN_NAME VARCHAR(128), \n"
+             " dv_to_sql_type3(c.COL_DTP) AS DATA_TYPE SMALLINT,\n"
+             " case when (c.COL_DTP in (125, 132) and get_keyword ('xml_col', coalesce (c.COL_OPTIONS, vector ())) is not null) then 'XMLType' else dv_type_title(c.COL_DTP) end AS TYPE_NAME VARCHAR(128),\n" 
+             " c.COL_PREC AS COLUMN_SIZE INTEGER,\n"
+             " c.COL_PREC AS BUFFER_LENGTH INTEGER,\n"
+             " c.COL_SCALE AS DECIMAL_DIGITS SMALLINT,\n"
+             " 2 AS NUM_PREC_RADIX SMALLINT,\n"
+             " case c.COL_NULLABLE when 1 then 0 else 1 end AS NULLABLE SMALLINT,\n"
+             " NULL AS REMARKS VARCHAR(254), \n"
+             " deserialize (c.COL_DEFAULT) AS COLUMN_DEF VARCHAR(254), \n"
+             " case 1 when 1 then dv_to_sql_type3(c.COL_DTP) else dv_to_sql_type(c.COL_DTP) end AS SQL_DATA_TYPE SMALLINT,\n"
+             " case c.COL_DTP when 129 then 1 when 210 then 2 when 211 then 3 else NULL end AS SQL_DATETIME_SUB SMALLINT,\n"
+             " c.COL_PREC AS CHAR_OCTET_LENGTH INTEGER,\n"
+             " cast ((select count(*) from DB.DBA.SYS_COLS where \\TABLE = k.KEY_TABLE and COL_ID <= c.COL_ID) as INTEGER) AS ORDINAL_POSITION INTEGER, \n"
+             " case c.COL_NULLABLE when 1 then 'NO' else 'YES' end AS IS_NULLABLE VARCHAR, \n"
+             " c.COL_CHECK as COL_CHECK \n"
+             "from DB.DBA.SYS_KEYS k, DB.DBA.SYS_KEY_PARTS kp, DB.DBA.SYS_COLS c \n"
+             "where upper (name_part (k.KEY_TABLE,0)) like upper (?)\n"
+             "  and upper (name_part (k.KEY_TABLE,1)) like upper (?)\n"
+             "  and upper (name_part (k.KEY_TABLE,2)) like upper (?)\n"
+             "  and c.\"COLUMN\" <> '_IDN' \n"
+             "  and k.KEY_IS_MAIN = 1\n"
+             "  and k.KEY_MIGRATE_TO is null\n"
+             "  and kp.KP_KEY_ID = k.KEY_ID\n"
+             "  and COL_ID = KP_COL\n"
+             "order by KEY_TABLE, 17\n")
+
+        ret = []
+        for row in connection.connection.execute(sql, tuple(params)):
+           class_ = ischema_names[row.TYPE_NAME.lower()]
+           type_ = class_()
+           if class_ is types.String:
+               type_.length = row.COLUMN_SIZE
+           elif class_ in [types.DECIMAL, types.NUMERIC]:
+               type_.precision = row.COLUMN_SIZE
+               type_.scale = row.DECIMAL_DIGITS
+
+           ret.append(
+               { "name": row.COLUMN_NAME,
+                 "type": type_,
+                 "nullable": bool(row.NULLABLE),
+                 "default": row.COLUMN_DEF,
+                 "autoincrement": False,  ## (row.type_name == "COUNTER"),
+               })
+        return ret
+
+
+    @reflection.cache
+    def get_pk_constraint(self, connection, table_name, schema=None, **kw):
+        catalog, schema_ = self._get_path(schema)
+        params = [catalog, schema_, table_name]
+
+        sql=("select"
+             " name_part(v1.KEY_TABLE,0) AS \\TABLE_QUALIFIER VARCHAR(128), \n"
+             " name_part(v1.KEY_TABLE,1) AS \\TABLE_OWNER VARCHAR(128), \n"
+             " name_part(v1.KEY_TABLE,2) AS \\TABLE_NAME VARCHAR(128), \n"
+             " DB.DBA.SYS_COLS.\\COLUMN AS \\COLUMN_NAME VARCHAR(128), \n"
+             " (kp.KP_NTH+1) AS \\KEY_SEQ SMALLINT, \n"
+             " name_part (v1.KEY_NAME, 2) AS \\PK_NAME VARCHAR(128), \n"
+             " name_part(v2.KEY_TABLE,0) AS \\ROOT_QUALIFIER VARCHAR(128), \n"
+             " name_part(v2.KEY_TABLE,1) AS \\ROOT_OWNER VARCHAR(128), \n"
+             " name_part(v2.KEY_TABLE,2) AS \\ROOT_NAME VARCHAR(128) \n"
+             "from DB.DBA.SYS_KEYS v1, DB.DBA.SYS_KEYS v2, \n"
+             "     DB.DBA.SYS_KEY_PARTS kp, DB.DBA.SYS_COLS \n"
+             "where upper(name_part(v1.KEY_TABLE,0)) like upper(?) \n"
+             "  and upper(name_part(v1.KEY_TABLE,1)) like upper(?) \n"
+             "  and upper(name_part(v1.KEY_TABLE,2)) like upper(?) \n"
+             "  and v1.KEY_IS_MAIN = 1 \n"
+             "  and v1.KEY_MIGRATE_TO is NULL \n"
+             "  and v1.KEY_SUPER_ID = v2.KEY_ID \n"
+             "  and kp.KP_KEY_ID = v1.KEY_ID \n"
+             "  and kp.KP_NTH < v1.KEY_DECL_PARTS \n"
+             "  and DB.DBA.SYS_COLS.COL_ID = kp.KP_COL \n"
+             "  and DB.DBA.SYS_COLS.\\COLUMN <> '_IDN' \n"
+             "order by v1.KEY_TABLE, kp.KP_NTH")
+
+        data = connection.connection.execute(sql, tuple(params)).fetchall();
+
+        ret = None
+        if len(data) > 0:
+            ret = { "constrained_columns": [row.COLUMN_NAME for row in data],
+                    "name": data[0].PK_NAME,
+                  }
+        return ret
+
+
+    @reflection.cache
+    def get_foreign_keys(self, connection, table_name, schema=None, **kw):
+        catalog, schema_ = self._get_path(schema)
+        params = [catalog, schema_, table_name]
+
+        sql=("select"
+             " name_part (PK_TABLE, 0) as PKTABLE_QUALIFIER varchar (128),"
+             " name_part (PK_TABLE, 1) as PKTABLE_OWNER varchar (128),"
+             " name_part (PK_TABLE, 2) as PKTABLE_NAME varchar (128),"
+             " PKCOLUMN_NAME as PKCOLUMN_NAME varchar (128),"
+             " name_part (FK_TABLE, 0) as FKTABLE_QUALIFIER varchar (128),"
+             " name_part (FK_TABLE, 1) as FKTABLE_OWNER varchar (128),"
+             " name_part (FK_TABLE, 2) as FKTABLE_NAME varchar (128),"
+             " FKCOLUMN_NAME as FKCOLUMN_NAME varchar (128),"
+             " (KEY_SEQ + 1) as KEY_SEQ SMALLINT,"
+             " FK_NAME as FK_NAME varchar (128),"
+             " PK_NAME as PK_NAME varchar (128) "
+             "from DB.DBA.SYS_FOREIGN_KEYS "
+             "where upper (name_part (FK_TABLE, 0)) like upper (?) \n"
+             "  and upper (name_part (FK_TABLE, 1)) like upper (?) \n"
+             "  and upper (name_part (FK_TABLE, 2)) like upper (?) \n"
+             "order by 1, 2, 3, 5, 6, 7, 9")
+
+        def fkey_rec():
+            return {
+                "name": None,
+                "constrained_columns": [],
+                "referred_schema": None,
+                "referred_table": None,
+                "referred_columns": [],
+                "options": {},
+            }
+
+        fkeys = defaultdict(fkey_rec)
+
+        crs = connection.connection.execute(sql, tuple(params))
+        for row in crs:
+          rec = fkeys[row.FK_NAME]
+          rec["name"] = row.FK_NAME
+
+          c_cols = rec["constrained_columns"]
+          c_cols.append(row.FKCOLUMN_NAME)
+
+          r_cols = rec["referred_columns"]
+          r_cols.append(row.PKCOLUMN_NAME)
+
+          if not rec["referred_table"]:
+            rec["referred_table"] = row.PKTABLE_NAME
+            rec["referred_schema"] = schema  ##row.PKTABLE_QUALIFIER+"."+row.PKTABLE_OWNER
+  
+        return list(fkeys.values())
+
+
+    @reflection.cache
+    def get_indexes(self, connection, table_name, schema=None, **kw):
+        catalog, schema_ = self._get_path(schema)
+        params = [catalog, schema_, table_name, catalog, schema_, table_name];
+
+        sql=("select\n"
+             " name_part(SYS_KEYS.KEY_TABLE,0) AS \\TABLE_QUALIFIER VARCHAR(128),\n"
+             " name_part(SYS_KEYS.KEY_TABLE,1) AS \\TABLE_OWNER VARCHAR(128),\n"
+             " name_part(SYS_KEYS.KEY_TABLE,2) AS \\TABLE_NAME VARCHAR(128),\n"
+             " iszero(SYS_KEYS.KEY_IS_UNIQUE) AS \\NON_UNIQUE SMALLINT,\n"
+             " name_part (SYS_KEYS.KEY_TABLE, 0) AS \\INDEX_QUALIFIER VARCHAR(128),\n"
+             " name_part (SYS_KEYS.KEY_NAME, 2) AS \\INDEX_NAME VARCHAR(128),\n"
+             " (SYS_KEY_PARTS.KP_NTH+1) AS \\SEQ_IN_INDEX SMALLINT,\n"
+             " SYS_COLS.\\COLUMN AS \\COLUMN_NAME VARCHAR(128)\n"
+             "from DB.DBA.SYS_KEYS SYS_KEYS, DB.DBA.SYS_KEY_PARTS SYS_KEY_PARTS,\n"
+             " DB.DBA.SYS_COLS SYS_COLS \n"
+             "where upper(name_part(SYS_KEYS.KEY_TABLE,0)) like upper(?)\n"
+             "  and upper(name_part(SYS_KEYS.KEY_TABLE,1)) like upper(?)\n"
+             "  and upper(name_part(SYS_KEYS.KEY_TABLE,2)) like upper(?)\n"
+             "  and SYS_KEYS.KEY_IS_UNIQUE >= 0\n"
+             "  and SYS_KEYS.KEY_MIGRATE_TO is NULL\n"
+             "  and SYS_KEY_PARTS.KP_KEY_ID = SYS_KEYS.KEY_ID\n"
+             "  and SYS_KEY_PARTS.KP_NTH < SYS_KEYS.KEY_DECL_PARTS\n"
+             "  and SYS_COLS.COL_ID = SYS_KEY_PARTS.KP_COL\n"
+             "  and SYS_COLS.\\COLUMN <> '_IDN' \n"
+             "union all \n"
+             "select\n"
+             " name_part(SYS_KEYS.KEY_TABLE,0) AS \\TABLE_QUALIFIER VARCHAR(128),\n"
+             " name_part(SYS_KEYS.KEY_TABLE,1) AS \\TABLE_OWNER VARCHAR(128),\n"
+             " name_part(SYS_KEYS.KEY_TABLE,2) AS \\TABLE_NAME VARCHAR(128),\n"
+             " NULL AS \\NON_UNIQUE SMALLINT,\n"
+             " NULL AS \\INDEX_QUALIFIER VARCHAR(128),\n"
+             " NULL AS \\INDEX_NAME VARCHAR(128),\n"
+             " NULL AS \\SEQ_IN_INDEX SMALLINT,\n"
+             " NULL AS \\COLUMN_NAME VARCHAR(128)\n"
+             "from DB.DBA.SYS_KEYS SYS_KEYS\n"
+             "where upper(name_part(SYS_KEYS.KEY_TABLE,0)) like upper(?)\n"
+             "  and upper(name_part(SYS_KEYS.KEY_TABLE,1)) like upper(?)\n"
+             "  and upper(name_part(SYS_KEYS.KEY_TABLE,2)) like upper(?)\n"
+             "  and SYS_KEYS.KEY_IS_MAIN = 1\n"
+             "  and SYS_KEYS.KEY_MIGRATE_TO is NULL\n"
+             "order by 1,2,3,6,7")
+
+        ret = {}
+        for row in connection.connection.execute(sql, tuple(params)).fetchall():
+            if row.INDEX_NAME is not None:
+                if row.INDEX_NAME in ret:
+                    ret[row.INDEX_NAME]["column_names"].append(
+                        row.COLUMN_NAME
+                    )
+                else:
+                    ret[row.INDEX_NAME] = {
+                        "name": row.INDEX_NAME,
+                        "unique": row.NON_UNIQUE == 0,
+                        "column_names": [row.COLUMN_NAME],
+                    }
+        return [x[1] for x in ret.items()]
+
+
