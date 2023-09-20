@@ -1,7 +1,7 @@
 # Virtuoso-SQLAlchemy
 
 
-A Virtuoso DBMS for SQLAlchemy.
+A Virtuoso DBMS dialect for SQLAlchemy.
 
 The latest version of this dialect requires SQLAlchemy 1.4 or later.
 
@@ -30,6 +30,7 @@ You have to set up your `~/.odbc.ini` (or `/etc/odbc.ini`) file with a block sim
 [VOS]
 Description = Open Virtuoso
 Driver      = /usr/local/virtuoso-opensource/lib/virtodbcu_r.so
+Database    = Demo
 Address     = localhost:1111
 WideAsUTF16 = Yes
 ```
@@ -54,5 +55,6 @@ SQLAlchemy-access is part of the `SQLAlchemy Project` <https://www.sqlalchemy.or
 
 
 ### Authors
+2023, OpenLink Software
 The package based on project https://github.com/maparent/virtuoso-python from `Marc-Antoine Parent`
 
