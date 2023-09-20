@@ -891,7 +891,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
                  "type": type_,
                  "nullable": bool(row.NULLABLE),
                  "default": row.COLUMN_DEF,
-                 "autoincrement": False,  ## (row.type_name == "COUNTER"),
+                 "autoincrement": row.COL_CHECK.find("I")!=-1,
                })
         return ret
 
