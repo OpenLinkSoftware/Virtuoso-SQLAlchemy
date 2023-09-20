@@ -55,6 +55,6 @@ SQLAlchemy-access is part of the `SQLAlchemy Project` <https://www.sqlalchemy.or
 
 
 ### Authors
-2023, OpenLink Software
-The package based on project https://github.com/maparent/virtuoso-python from `Marc-Antoine Parent`
+- 2023, OpenLink Software
+- The package based on project https://github.com/maparent/virtuoso-python from `Marc-Antoine Parent`
 
