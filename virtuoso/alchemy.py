@@ -434,6 +434,9 @@ TEXT_TYPES = (CHAR, VARCHAR, NCHAR, NVARCHAR, String, UnicodeText,
 #     return iri_class_decorator
 
 
+class ANY(Text):
+    __visit_name__ = 'ANY'
+
 class XML(Text):
     __visit_name__ = 'XML'
 
@@ -502,6 +505,9 @@ class VirtuosoTypeCompiler(compiler.GenericTypeCompiler):
 
     def visit_LONG_XML(self, type_):
         return "LONG XML"
+
+    def visit_ANY(self, type_):
+        return "VARCHAR(8192)"
 
     # def visit_user_defined(self, type_):
     # TODO!
@@ -679,6 +685,7 @@ ischema_names = {
     'long varbinary': LONGVARBINARY,
     'long varchar': LONGVARCHAR,
     'timestamp': TIMESTAMP,
+    'any': ANY,
 }
 
 
