@@ -720,7 +720,17 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
     supports_sequences = True
     postfetch_lastrowid = True
     supports_native_decimal = True
+    schema_name = None
 
+    def __init__(
+        self,
+        schema_name=None,
+        **opts,
+    ):
+        self.schema_name = schema_name
+
+        super().__init__(**opts)
+     
 
     def connect(self, *args, **kwargs):
         connection = super(VirtuosoDialect, self).connect(*args, **kwargs)
@@ -731,7 +741,10 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
             text('select dbname(), get_user()'))
         catalog, schema = res.fetchone()
         self.default_cat = catalog
-        return '.'.join((catalog, schema))
+        if self.schema_name is not None:
+            return '.'.join((catalog, self.schema_name))
+        else:
+            return '.'.join((catalog, schema))
 
 
     def _get_path(self, schema=None, **kw):
