@@ -4,7 +4,7 @@
 import sqlalchemy as db
 import pandas as pd
 
-engine = db.create_engine('virtuoso+pyodbc://demo:demo@New Demo Server')
+engine = db.create_engine('virtuoso+pyodbc://demo:demo@VOS')
 
 connection = engine.connect()
 df = pd.read_sql_query("SELECT TOP 10 movie FROM (SPARQL PREFIX dbr: <http://dbpedia.org/resource/> PREFIX dbo: <http://dbpedia.org/ontology/> SELECT ?movie WHERE {SERVICE <http://dbpedia.org/sparql> {?movie rdf:type dbo:Film ; dbo:director dbr:Spike_Lee . }}) AS movies ", connection)
