@@ -24,11 +24,9 @@ Create an `ODBC DSN (Data Source Name)`_ that points to your target Virtuoso mul
 
 ```ini
 ; Data Source Name and associated Driver Section
-
 VOS          = OpenLink Virtuoso ODBC Driver (Unicode)
 
 ; Data Source Name and associated Driver Library section
-
 [VOS]
 Description = Open Virtuoso
 Driver      = /usr/local/virtuoso-opensource/lib/virtodbcu_r.so
