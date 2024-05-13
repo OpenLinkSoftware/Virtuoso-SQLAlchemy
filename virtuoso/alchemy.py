@@ -762,7 +762,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
 
 
     def has_schema(self, connection, schema, **kw):
-        catalog, schema_ = self._get_path(None)
+        catalog, schema_ = self._get_path(schema)
         params = [catalog, schema];
 
         sql=("SELECT TABLE_NAME FROM DB..TABLES \n"
@@ -777,7 +777,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
          
 
     def has_table(self, connection, table_name, schema=None, **kw):
-        catalog, schema_ = self._get_path(None)
+        catalog, schema_ = self._get_path(schema)
         params = [catalog, schema_, table_name];
 
         sql=("SELECT TABLE_NAME FROM DB..TABLES \n"
