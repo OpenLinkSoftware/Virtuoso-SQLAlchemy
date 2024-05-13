@@ -1,9 +1,5 @@
-from __future__ import absolute_import
-from pkg_resources import DistributionNotFound
+from sqlalchemy.dialects import registry
 
-try:
-    from . import alchemy
-except DistributionNotFound:
-    pass
+registry.register("virtuoso.pyodbc", "virtuoso.alchemy", "VirtuosoDialect")
 
-__all__ = ["alchemy"]
+__version__ = "0.1.3"

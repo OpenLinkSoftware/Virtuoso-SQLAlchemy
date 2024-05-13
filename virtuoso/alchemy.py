@@ -320,118 +320,118 @@ TEXT_TYPES = (CHAR, VARCHAR, NCHAR, NVARCHAR, String, UnicodeText,
               Unicode, Text, LONGVARCHAR, LONGNVARCHAR)
 
 
-# class IRI_ID_Literal(str):
-#     "An internal virtuoso IRI ID, of the form #innnnn"
-#     def __str__(self):
-#         return 'IRI_ID_Literal("%s")' % (self, )
-# 
-#     def __repr__(self):
-#         return str(self)
-# 
+class IRI_ID_Literal(str):
+#    "An internal virtuoso IRI ID, of the form #innnnn"
+    def __str__(self):
+        return 'IRI_ID_Literal("%s")' % (self, )
 
-# class IRI_ID(UserDefinedType):
-#     "A column type for IRI ID"
-#     __visit_name__ = 'IRI_ID'
-# 
-#     def __init__(self):
-#         super(IRI_ID, self).__init__()
-# 
-#     def get_col_spec(self):
-#         return "IRI_ID"
-# 
-#     def bind_processor(self, dialect):
-#         def process(value):
-#             if value:
-#                 return IRI_ID_Literal(value)
-#         return process
-# 
-#     def result_processor(self, dialect, coltype):
-#         def process(value):
-#             if value:
-#                 return IRI_ID_Literal(value)
-#         return process
+    def __repr__(self):
+        return str(self)
 
 
-# class iri_id_num(GenericFunction):
-#     "Convert IRI IDs to int values"
-#     type = INTEGER
-#     name = "iri_id_num"
-# 
-#     def __init__(self, iri_id, **kw):
-#         if not isinstance(iri_id, IRI_ID_Literal)\
-#                 and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
-#             warnings.warn("iri_id_num() accepts an IRI_ID object as input.")
-#         super(iri_id_num, self).__init__(iri_id, **kw)
+class IRI_ID(UserDefinedType):
+    "A column type for IRI ID"
+    __visit_name__ = 'IRI_ID'
+
+    def __init__(self):
+        super(IRI_ID, self).__init__()
+
+    def get_col_spec(self):
+        return "IRI_ID"
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value:
+                return IRI_ID_Literal(value)
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value:
+                return IRI_ID_Literal(value)
+        return process
 
 
-# class iri_id_from_num(GenericFunction):
-#     "Convert numeric IRI IDs to IRI ID literal type"
-#     type = IRI_ID
-#     name = "iri_id_from_num"
-# 
-#     def __init__(self, num, **kw):
-#         if not isinstance(num, int):
-#             warnings.warn("iri_id_num() accepts an Integer as input.")
-#         super(iri_id_from_num, self).__init__(num, **kw)
+class iri_id_num(GenericFunction):
+    "Convert IRI IDs to int values"
+    type = INTEGER
+    name = "iri_id_num"
+
+    def __init__(self, iri_id, **kw):
+        if not isinstance(iri_id, IRI_ID_Literal)\
+                and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
+            warnings.warn("iri_id_num() accepts an IRI_ID object as input.")
+        super(iri_id_num, self).__init__(iri_id, **kw)
 
 
-# class id_to_iri(GenericFunction):
-#     "Get the IRI from a given IRI ID"
-#     type = String
-#     name = "id_to_iri"
-# 
-#     def __init__(self, iri_id, **kw):
-#         # TODO: Handle deferred.
-#         if not isinstance(iri_id, IRI_ID_Literal)\
-#                 and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
-#             warnings.warn("iri_id_num() accepts an IRI_ID as input.")
-#         super(id_to_iri, self).__init__(iri_id, **kw)
-# 
+class iri_id_from_num(GenericFunction):
+    "Convert numeric IRI IDs to IRI ID literal type"
+    type = IRI_ID
+    name = "iri_id_from_num"
 
-# class iri_to_id(GenericFunction):
-#     """Get an IRI ID from an IRI.
-#     If the IRI is new to virtuoso, the IRI ID may be created on-the-fly,
-#     according to the second argument."""
-#     type = IRI_ID
-#     name = "iri_to_id"
-# 
-#     def __init__(self, iri, create=True, **kw):
-#         if isinstance(iri, past.builtins.unicode):
-#             iri = iri_to_uri(iri)
-#         if not isinstance(iri, str):
-#             warnings.warn("iri_id_num() accepts an IRI (VARCHAR) as input.")
-#         super(iri_to_id, self).__init__(iri, create, **kw)
+    def __init__(self, num, **kw):
+        if not isinstance(num, int):
+            warnings.warn("iri_id_num() accepts an Integer as input.")
+        super(iri_id_from_num, self).__init__(num, **kw)
 
 
-# def iri_property(iri_id_colname, iri_propname):
-#     """Class decorator to add access to an IRI_ID column as an IRI.
-#     The name of the IRI property will be iri_propname."""
-#     def iri_class_decorator(klass):
-#         iri_hpropname = '_'+iri_propname
-#         setattr(klass, iri_hpropname,
-#                 column_property(id_to_iri(getattr(klass, iri_id_colname))))
-# 
-#         def iri_accessor(self):
-#             return getattr(self, iri_hpropname)
-# 
-#         def iri_expression(klass):
-#             return id_to_iri(getattr(klass, iri_id_colname))
-# 
-#         def iri_setter(self, val):
-#             setattr(self, iri_hpropname, val)
-#             setattr(self, iri_id_colname, iri_to_id(val))
-# 
-#         def iri_deleter(self):
-#             setattr(self, iri_id_colname, None)
-# 
-#         col = getattr(klass, iri_id_colname)
-#         if not col.property.columns[0].nullable:
-#             iri_deleter = None
-#         prop = hybrid_property(
-#             iri_accessor, iri_setter, iri_deleter, iri_expression)
-#         setattr(klass, iri_propname, prop)
-#         return klass
-#     return iri_class_decorator
+class id_to_iri(GenericFunction):
+    "Get the IRI from a given IRI ID"
+    type = String
+    name = "id_to_iri"
+
+    def __init__(self, iri_id, **kw):
+        # TODO: Handle deferred.
+        if not isinstance(iri_id, IRI_ID_Literal)\
+                and not isinstance(iri_id.__dict__.get('type'), IRI_ID):
+            warnings.warn("iri_id_num() accepts an IRI_ID as input.")
+        super(id_to_iri, self).__init__(iri_id, **kw)
+
+
+class iri_to_id(GenericFunction):
+    """Get an IRI ID from an IRI.
+    If the IRI is new to virtuoso, the IRI ID may be created on-the-fly,
+    according to the second argument."""
+    type = IRI_ID
+    name = "iri_to_id"
+
+    def __init__(self, iri, create=True, **kw):
+        if isinstance(iri, past.builtins.unicode):
+            iri = iri_to_uri(iri)
+        if not isinstance(iri, str):
+            warnings.warn("iri_id_num() accepts an IRI (VARCHAR) as input.")
+        super(iri_to_id, self).__init__(iri, create, **kw)
+
+
+def iri_property(iri_id_colname, iri_propname):
+    """Class decorator to add access to an IRI_ID column as an IRI.
+    The name of the IRI property will be iri_propname."""
+    def iri_class_decorator(klass):
+        iri_hpropname = '_'+iri_propname
+        setattr(klass, iri_hpropname,
+                column_property(id_to_iri(getattr(klass, iri_id_colname))))
+
+        def iri_accessor(self):
+            return getattr(self, iri_hpropname)
+
+        def iri_expression(klass):
+            return id_to_iri(getattr(klass, iri_id_colname))
+
+        def iri_setter(self, val):
+            setattr(self, iri_hpropname, val)
+            setattr(self, iri_id_colname, iri_to_id(val))
+
+        def iri_deleter(self):
+            setattr(self, iri_id_colname, None)
+
+        col = getattr(klass, iri_id_colname)
+        if not col.property.columns[0].nullable:
+            iri_deleter = None
+        prop = hybrid_property(
+            iri_accessor, iri_setter, iri_deleter, iri_expression)
+        setattr(klass, iri_propname, prop)
+        return klass
+    return iri_class_decorator
 
 
 class ANY(Text):
@@ -728,7 +728,6 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
         **opts,
     ):
         self.schema_name = schema_name
-
         super().__init__(**opts)
      
 
