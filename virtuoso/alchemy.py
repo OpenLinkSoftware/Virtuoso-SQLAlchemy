@@ -161,7 +161,7 @@ class VirtuosoSQLCompiler(compiler.SQLCompiler):
         if select._limit or select._offset:
             if select._offset:
                 limit = select._limit or '100000'
-                s += "TOP %s, %s " % (limit, select._offset + 1)
+                s += "TOP %s, %s " % (select._offset, limit)
             else:
                 s += "TOP %s " % (select._limit,)
         return s
