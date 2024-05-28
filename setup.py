@@ -8,7 +8,7 @@ import os
 #install_reqs = parse_requirements('requirements.txt', session=PipSession())
 #requires = [str(ir.req) for ir in install_reqs]
 
-version = '0.1.5'
+version = '0.1.6'
 
 readme = os.path.join(os.path.dirname(__file__), "README.md")
 
