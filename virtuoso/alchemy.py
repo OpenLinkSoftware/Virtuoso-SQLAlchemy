@@ -124,8 +124,7 @@ class VirtuosoIdentifierPreparer(compiler.IdentifierPreparer):
             cat, schema = schema.split('.', 1)
             return self.quote(cat, force) + '.' + self.quote(schema, force)
         else:
-            # Virtuoso needs an extra dot to indicate absent username
-            return self.quote(schema, force) + '.'
+            return self.quote(schema, force)
 
     def format_sequence(self, sequence, use_schema=True):
         res = super(VirtuosoIdentifierPreparer, self).format_sequence(
@@ -741,9 +740,9 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
         catalog, schema = res.fetchone()
         self.default_cat = catalog
         if self.schema_name is not None:
-            return '.'.join((catalog, self.schema_name))
+            return self.schema_name
         else:
-            return '.'.join((catalog, schema))
+            return schema
 
 
     def _get_path(self, schema=None, **kw):
