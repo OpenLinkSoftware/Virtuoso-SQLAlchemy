@@ -782,7 +782,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
         sql=("SELECT TABLE_NAME FROM DB..TABLES \n"
                  "WHERE upper(TABLE_CATALOG) like upper(?) \n"
                  "  AND upper(TABLE_SCHEMA) like upper(?) \n"
-                 "  AND upper(TABLE_NAME) like upper(?) ")
+                 "  AND upper(TABLE_NAME) = upper(?) ")
 
         row = connection.connection.execute(sql, tuple(params)).fetchone()
         if row:
@@ -848,7 +848,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
         sql=("SELECT VIEW_DEFINITION FROM DB..VIEWS \n"
                  "WHERE upper(TABLE_CATALOG) like upper(?) \n"
                  " AND upper(TABLE_SCHEMA) like upper(?) \n"
-                 " AND upper(TABLE_NAME) like upper(?) ")
+                 " AND upper(TABLE_NAME) = upper(?) ")
 
         ret = []
         row = connection.connection.execute(sql, tuple(params)).fetchone()
@@ -886,7 +886,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
              "from DB.DBA.SYS_KEYS k, DB.DBA.SYS_KEY_PARTS kp, DB.DBA.SYS_COLS c \n"
              "where upper (name_part (k.KEY_TABLE,0)) like upper (?)\n"
              "  and upper (name_part (k.KEY_TABLE,1)) like upper (?)\n"
-             "  and upper (name_part (k.KEY_TABLE,2)) like upper (?)\n"
+             "  and upper (name_part (k.KEY_TABLE,2)) = upper (?)\n"
              "  and c.\"COLUMN\" <> '_IDN' \n"
              "  and k.KEY_IS_MAIN = 1\n"
              "  and k.KEY_MIGRATE_TO is null\n"
@@ -933,7 +933,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
              "     DB.DBA.SYS_KEY_PARTS kp, DB.DBA.SYS_COLS \n"
              "where upper(name_part(v1.KEY_TABLE,0)) like upper(?) \n"
              "  and upper(name_part(v1.KEY_TABLE,1)) like upper(?) \n"
-             "  and upper(name_part(v1.KEY_TABLE,2)) like upper(?) \n"
+             "  and upper(name_part(v1.KEY_TABLE,2)) = upper(?) \n"
              "  and v1.KEY_IS_MAIN = 1 \n"
              "  and v1.KEY_MIGRATE_TO is NULL \n"
              "  and v1.KEY_SUPER_ID = v2.KEY_ID \n"
@@ -973,7 +973,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
              "from DB.DBA.SYS_FOREIGN_KEYS "
              "where upper (name_part (FK_TABLE, 0)) like upper (?) \n"
              "  and upper (name_part (FK_TABLE, 1)) like upper (?) \n"
-             "  and upper (name_part (FK_TABLE, 2)) like upper (?) \n"
+             "  and upper (name_part (FK_TABLE, 2)) = upper (?) \n"
              "order by 1, 2, 3, 5, 6, 7, 9")
 
         def fkey_rec():
@@ -1024,7 +1024,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
              " DB.DBA.SYS_COLS SYS_COLS \n"
              "where upper(name_part(SYS_KEYS.KEY_TABLE,0)) like upper(?)\n"
              "  and upper(name_part(SYS_KEYS.KEY_TABLE,1)) like upper(?)\n"
-             "  and upper(name_part(SYS_KEYS.KEY_TABLE,2)) like upper(?)\n"
+             "  and upper(name_part(SYS_KEYS.KEY_TABLE,2)) = upper(?)\n"
              "  and SYS_KEYS.KEY_IS_UNIQUE >= 0\n"
              "  and SYS_KEYS.KEY_MIGRATE_TO is NULL\n"
              "  and SYS_KEY_PARTS.KP_KEY_ID = SYS_KEYS.KEY_ID\n"
@@ -1044,7 +1044,7 @@ class VirtuosoDialect(PyODBCConnector, default.DefaultDialect):
              "from DB.DBA.SYS_KEYS SYS_KEYS\n"
              "where upper(name_part(SYS_KEYS.KEY_TABLE,0)) like upper(?)\n"
              "  and upper(name_part(SYS_KEYS.KEY_TABLE,1)) like upper(?)\n"
-             "  and upper(name_part(SYS_KEYS.KEY_TABLE,2)) like upper(?)\n"
+             "  and upper(name_part(SYS_KEYS.KEY_TABLE,2)) = upper(?)\n"
              "  and SYS_KEYS.KEY_IS_MAIN = 1\n"
              "  and SYS_KEYS.KEY_MIGRATE_TO is NULL\n"
              "order by 1,2,3,6,7")
