@@ -37,7 +37,7 @@ VOS          = OpenLink Virtuoso ODBC Driver (Unicode)
 
 ; Data Source Name and associated Driver Library section
 [VOS]
-Description = Open Virtuoso
+Description = OpenLink Virtuoso
 Driver      = /usr/local/virtuoso-opensource/lib/virtodbcu_r.so
 Database    = Demo
 Address     = localhost:1111
